@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-      marginHorizontal: 5, // 👈 adds space between circles
+    marginHorizontal: 5, // 👈 adds space between circles
   },
   selected: {
     borderWidth: 3,
