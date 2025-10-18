@@ -70,13 +70,12 @@ Manage text input and button interaction.
 
 ## 🎨 Styling Overview
 
-Element Font Size Font Weight Color
-App Title 45 600 #FFFFFF
-“Your name” text 16 300 #757083 (50% opacity)
-“Choose background color” text 16 300 #757083
-Button text 16 600 #FFFFFF
-Button background — — #757083
-Circle colors — — #090C08, #474056, #8A95A5, #B9C6AE
+- Vertical and horizontal spacing: evenly distributed
+- App title: font size 45, font weight 600, font color #FFFFFF
+- “Your name”: font size 16, font weight 300, font color #757083, 50% opacity
+- “Choose background color”: font size 16, font weight 300, font color #757083, 100% opacity
+- Color options HEX codes: #090C08; #474056; #8A95A5; #B9C6AE
+- Start chatting button: font size 16, font weight 600, font color #FFFFFF, button color #757083
 
 ## Requirements
 
