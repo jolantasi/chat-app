@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getAuth, signInAnonymously } from "firebase/auth"; // Firebase Auth for anonymous login
 import {
   View,
   Text,
@@ -9,23 +10,56 @@ import {
 } from 'react-native';
 
 export default function Start({ navigation }) {
-  const [name, setName] = useState('');
-  const [color, setColor] = useState('');
+  // --- State variables ---
+  const [name, setName] = useState(''); // Stores the user's name input
+  const [color, setColor] = useState(''); // Stores the selected chat background color
 
+  // Array of color options for the user to select
   const colors = ['#090C08', '#474056', '#8A95A5', '#B9C6AE'];
+
+  // --- Anonymous login function ---
+  const handleStartChatting = () => {
+    const auth = getAuth();
+
+    // Validate that user entered name and selected a color
+    if (!name) {
+      alert("Please enter your name!");
+      return;
+    }
+    if (!color) {
+      alert("Please select a background color!");
+      return;
+    }
+
+    // Sign in user anonymously using Firebase Auth
+    signInAnonymously(auth)
+      .then(userCredential => {
+        const user = userCredential.user; // Get the logged-in user object
+
+        // Navigate to Chat screen with necessary parameters
+        navigation.navigate('Chat', {
+          userId: user.uid, // Anonymous user ID
+          name: name,       // User's name
+          color: color      // Selected background color
+        });
+      })
+      .catch(error => {
+        console.error("Anonymous login failed:", error);
+      });
+  };
 
   return (
     <ImageBackground
-      source={require('../assets/background.png')}
+      source={require('../assets/background.png')} // Background image for the screen
       style={styles.background}
     >
       <View style={styles.container}>
         {/* App Title */}
         <Text style={styles.title}>Chat App</Text>
 
-        {/* White box container */}
+        {/* White box container for input fields and button */}
         <View style={styles.box}>
-          {/* Input field */}
+          {/* Input field for user's name */}
           <TextInput
             style={styles.input}
             value={name}
@@ -34,7 +68,7 @@ export default function Start({ navigation }) {
             placeholderTextColor="rgba(117, 112, 131, 0.5)"
           />
 
-          {/* Choose background color section */}
+          {/* Section for choosing chat background color */}
           <Text style={styles.chooseColorText}>Choose Background Color:</Text>
 
           <View style={styles.colorContainer}>
@@ -44,17 +78,17 @@ export default function Start({ navigation }) {
                 style={[
                   styles.colorCircle,
                   { backgroundColor: c },
-                  color === c ? styles.selected : null,
+                  color === c ? styles.selected : null, // Highlight selected color
                 ]}
                 onPress={() => setColor(c)}
               />
             ))}
           </View>
 
-          {/* Button */}
+          {/* Button to start chatting */}
           <TouchableOpacity
             style={styles.button}
-            onPress={() => navigation.navigate('Chat', { name, color })}
+            onPress={handleStartChatting} // Call anonymous login function
           >
             <Text style={styles.buttonText}>Start Chatting</Text>
           </TouchableOpacity>
@@ -64,6 +98,7 @@ export default function Start({ navigation }) {
   );
 }
 
+// --- Styles ---
 const styles = StyleSheet.create({
   background: {
     flex: 1,
@@ -119,7 +154,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginHorizontal: 5, // 👈 adds space between circles
+    marginHorizontal: 5,
   },
   selected: {
     borderWidth: 3,
