@@ -3,9 +3,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, disableNetwork, enableNetwork } from "firebase/firestore";
 import Start from './components/Start';
 import Chat from './components/Chat';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNetInfo } from '@react-native-community/netinfo';
+import { useEffect } from "react";
+import { LogBox, Alert } from "react-native";
 
 // --- Firebase configuration ---
 const firebaseConfig = {
@@ -25,6 +29,18 @@ const db = getFirestore(app); // Firestore database instance
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+
+    const connectionStatus = useNetInfo();
+
+  useEffect(() => {
+    if (connectionStatus.isConnected === false) {
+      Alert.alert("Connection Lost!");
+      disableNetwork(db);
+    } else if (connectionStatus.isConnected === true) {
+      enableNetwork(db);
+    }
+  }, [connectionStatus.isConnected]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>
@@ -33,8 +49,16 @@ export default function App() {
 
           {/* Pass Firestore database as a prop to Chat screen */}
           <Stack.Screen name="Chat">
-            {props => <Chat {...props} db={db} app={app} />}
+            {props => (
+              <Chat
+               {...props}
+               db={db}
+               app={app}
+               isConnected={connectionStatus.isConnected}   // 👈 added
+              />
+            )}
           </Stack.Screen>
+
         </Stack.Navigator>
       </NavigationContainer>
     </GestureHandlerRootView> 

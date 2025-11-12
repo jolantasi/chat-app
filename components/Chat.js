@@ -1,12 +1,12 @@
 import React, { useLayoutEffect, useState, useEffect } from 'react';
 import { View, StyleSheet, Platform, KeyboardAvoidingView } from 'react-native';
-import { GiftedChat, Bubble } from 'react-native-gifted-chat';
+import { GiftedChat, Bubble, InputToolbar } from 'react-native-gifted-chat';
 import { collection, query, orderBy, onSnapshot, addDoc } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------- Firebase Initialization ---------------------- //
 const firebaseConfig = {
@@ -24,14 +24,18 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 
 // ✅ Auth with persistence (so users stay logged in)
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+  persistence: getReactNativePersistence(AsyncStorage),
 });
 
 // ✅ Firestore initialization
 const dbDefault = getFirestore(app);
 
+// 🔑 Storage key for cached messages
+const MESSAGES_STORAGE_KEY = 'chat_messages';
+
 // ---------------------- Chat Component ---------------------- //
-export default function Chat({ route, navigation, db }) {
+export default function Chat({ route, navigation, db, app, isConnected }) {
+  console.log('isConnected in Chat:', isConnected);
   const { name, color, userId } = route.params;
   const database = db || dbDefault;
 
@@ -43,43 +47,86 @@ export default function Chat({ route, navigation, db }) {
   // ---------------------- Messages State ---------------------- //
   const [messages, setMessages] = useState([]);
 
-  // ---------------------- Load Messages in Real-Time ---------------------- //
+  // Helper: cache messages locally
+  const cacheMessages = async (msgs) => {
+    try {
+      await AsyncStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(msgs));
+    } catch (error) {
+      console.log('Error caching messages:', error);
+    }
+  };
+
+  // Helper: load messages from cache when offline
+  const loadCachedMessages = async () => {
+    try {
+      const cachedMessages = await AsyncStorage.getItem(MESSAGES_STORAGE_KEY);
+      if (cachedMessages) {
+        const parsed = JSON.parse(cachedMessages).map((msg) => ({
+          ...msg,
+          createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
+        }));
+        setMessages(parsed);
+      }
+    } catch (error) {
+      console.log('Error loading cached messages:', error);
+    }
+  };
+
+  // ---------------------- Load Messages (online/offline) ---------------------- //
   useEffect(() => {
-    const messagesQuery = query(
-      collection(database, 'messages'),
-      orderBy('createdAt', 'desc')
-    );
+    let unsubscribe;
 
-    const unsubscribe = onSnapshot(messagesQuery, (querySnapshot) => {
-      const newMessages = querySnapshot.docs.map((doc) => ({
-        _id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt
-          ? doc.data().createdAt.toDate()
-          : new Date(),
-      }));
-      setMessages(newMessages);
-    });
+    if (isConnected) {
+      // ✅ ONLINE: listen to Firestore and cache messages
+      const messagesQuery = query(
+        collection(database, 'messages'),
+        orderBy('createdAt', 'desc')
+      );
 
-    return () => unsubscribe();
-  }, [database]);
+      unsubscribe = onSnapshot(messagesQuery, (querySnapshot) => {
+        const newMessages = querySnapshot.docs.map((doc) => ({
+          _id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt
+            ? doc.data().createdAt.toDate()
+            : new Date(),
+        }));
+
+        setMessages(newMessages);
+        cacheMessages(newMessages); // ✅ cache latest messages
+      });
+    } else {
+      // ❌ OFFLINE: load cached messages
+      loadCachedMessages();
+    }
+
+    // Cleanup Firestore listener when unmounting or going offline
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [database, isConnected]);
 
   // ---------------------- Send Message Handler ---------------------- //
   const onSend = async (newMessages = []) => {
-    setMessages((prevMessages) => GiftedChat.append(prevMessages, newMessages));
+  if (!isConnected) {
+    console.log("Offline: message not sent");
+    return; // prevent saving to Firestore
+  }
 
-    const messageToSave = {
-      ...newMessages[0],
-      createdAt: new Date(),
-    };
+  setMessages((prevMessages) => GiftedChat.append(prevMessages, newMessages));
 
-    try {
-      await addDoc(collection(database, 'messages'), messageToSave);
-      console.log('Message saved to Firestore');
-    } catch (error) {
-      console.error('Error saving message:', error);
-    }
+  const messageToSave = {
+    ...newMessages[0],
+    createdAt: new Date(),
   };
+
+  try {
+    await addDoc(collection(database, 'messages'), messageToSave);
+    console.log('Message saved to Firestore');
+  } catch (error) {
+    console.error('Error saving message:', error);
+  }
+};
 
   // ---------------------- Bubble Styling ---------------------- //
   const renderBubble = (props) => (
@@ -92,25 +139,37 @@ export default function Chat({ route, navigation, db }) {
     />
   );
 
+// ---------------------- InputToolbar (hide when offline) ---------------------- //
+  const renderInputToolbar = (props) => {
+  // Show input ONLY when we are explicitly online
+  if (isConnected === true) {
+    return <InputToolbar {...props} />;
+  }
+
+  // Offline or unknown -> hide
+  return null;
+};
+
   // ---------------------- JSX Render ---------------------- //
   return (
-  <SafeAreaView style={[styles.container, { backgroundColor: color }]}>
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-      style={{ flex: 1 }}
-    >
-      <GiftedChat
-        messages={messages}
-        onSend={(messages) => onSend(messages)}
-        renderBubble={renderBubble}
-        user={{ _id: userId, name }}
-        keyboardShouldPersistTaps="handled"
-        alwaysShowSend
-      />
-    </KeyboardAvoidingView>
-  </SafeAreaView>
-);
+    <SafeAreaView style={[styles.container, { backgroundColor: color }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        style={{ flex: 1 }}
+      >
+        <GiftedChat
+          messages={messages}
+          onSend={(messages) => onSend(messages)}
+          renderBubble={renderBubble}
+          renderInputToolbar={renderInputToolbar}
+          user={{ _id: userId, name }}
+          keyboardShouldPersistTaps="handled"
+          alwaysShowSend={isConnected}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 }
 
 // ---------------------- Styles ---------------------- //
