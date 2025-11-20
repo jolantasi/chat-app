@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getAuth, signInAnonymously } from "firebase/auth"; // Firebase Auth for anonymous login
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import {
   View,
   Text,
@@ -10,56 +10,56 @@ import {
 } from 'react-native';
 
 export default function Start({ navigation }) {
-  // --- State variables ---
-  const [name, setName] = useState(''); // Stores the user's name input
-  const [color, setColor] = useState(''); // Stores the selected chat background color
+  // ---------------------- State ---------------------- //
+  const [name, setName] = useState('');
+  const [color, setColor] = useState('');
 
-  // Array of color options for the user to select
+  // Available background color options
   const colors = ['#090C08', '#474056', '#8A95A5', '#B9C6AE'];
 
-  // --- Anonymous login function ---
+  // ---------------------- Anonymous Login & Navigation ---------------------- //
   const handleStartChatting = () => {
     const auth = getAuth();
 
-    // Validate that user entered name and selected a color
+    // Basic validation
     if (!name) {
-      alert("Please enter your name!");
+      alert('Please enter your name!');
       return;
     }
+
     if (!color) {
-      alert("Please select a background color!");
+      alert('Please select a background color!');
       return;
     }
 
-    // Sign in user anonymously using Firebase Auth
+    // Sign in user anonymously and navigate to Chat
     signInAnonymously(auth)
-      .then(userCredential => {
-        const user = userCredential.user; // Get the logged-in user object
+      .then((userCredential) => {
+        const user = userCredential.user;
 
-        // Navigate to Chat screen with necessary parameters
         navigation.navigate('Chat', {
-          userId: user.uid, // Anonymous user ID
-          name: name,       // User's name
-          color: color      // Selected background color
+          userId: user.uid,
+          name,
+          color,
         });
       })
-      .catch(error => {
-        console.error("Anonymous login failed:", error);
+      .catch((error) => {
+        console.error('Anonymous login failed:', error);
       });
   };
 
+  // ---------------------- UI ---------------------- //
   return (
     <ImageBackground
-      source={require('../assets/background.png')} // Background image for the screen
+      source={require('../assets/background.png')}
       style={styles.background}
     >
       <View style={styles.container}>
-        {/* App Title */}
+        {/* App title */}
         <Text style={styles.title}>Chat App</Text>
 
-        {/* White box container for input fields and button */}
+        {/* Card with input, color selection, and button */}
         <View style={styles.box}>
-          {/* Input field for user's name */}
           <TextInput
             style={styles.input}
             value={name}
@@ -68,7 +68,6 @@ export default function Start({ navigation }) {
             placeholderTextColor="rgba(117, 112, 131, 0.5)"
           />
 
-          {/* Section for choosing chat background color */}
           <Text style={styles.chooseColorText}>Choose Background Color:</Text>
 
           <View style={styles.colorContainer}>
@@ -85,10 +84,9 @@ export default function Start({ navigation }) {
             ))}
           </View>
 
-          {/* Button to start chatting */}
           <TouchableOpacity
             style={styles.button}
-            onPress={handleStartChatting} // Call anonymous login function
+            onPress={handleStartChatting}
           >
             <Text style={styles.buttonText}>Start Chatting</Text>
           </TouchableOpacity>
@@ -98,7 +96,7 @@ export default function Start({ navigation }) {
   );
 }
 
-// --- Styles ---
+// ---------------------- Styles ---------------------- //
 const styles = StyleSheet.create({
   background: {
     flex: 1,
